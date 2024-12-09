@@ -13,6 +13,7 @@ import time
 import numpy as np
 from thop import profile, clever_format
 import tensorly as tl
+from timm.data import resolve_data_config
 
 
 def get_args_parser():
@@ -146,7 +147,9 @@ def main(args):
     optimizer = torch.optim.AdamW(params, lr=args.lr)
     criterion = torch.nn.CrossEntropyLoss()
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_drop)
-
+    
+    if args.pre_trained:
+        args.model_config = resolve_data_config(model.backbone.pretrained_cfg, model=model.backbone)
     dataset_train, dataset_val = select_dataset(args)
 
     if args.distributed:

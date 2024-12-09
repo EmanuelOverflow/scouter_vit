@@ -1,3 +1,12 @@
+""" Tensorflow Preprocessing Adapter
+
+Allows use of Tensorflow preprocessing pipeline in PyTorch Transform
+
+Copyright of original Tensorflow code below.
+
+Hacked together by / Copyright 2020 Ross Wightman
+"""
+
 # Copyright 2018 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,16 +22,13 @@
 # limitations under the License.
 # ==============================================================================
 """ImageNet preprocessing for MnasNet."""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import numpy as np
 
 IMAGE_SIZE = 224
 CROP_PADDING = 32
 
+tf.compat.v1.disable_eager_execution()
 
 def distorted_bounding_box_crop(image_bytes,
                                 bbox,

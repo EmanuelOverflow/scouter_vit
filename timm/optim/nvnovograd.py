@@ -29,8 +29,16 @@ class NvNovoGrad(Optimizer):
             (default: False)
     """
 
-    def __init__(self, params, lr=1e-3, betas=(0.95, 0.98), eps=1e-8,
-                 weight_decay=0, grad_averaging=False, amsgrad=False):
+    def __init__(
+            self,
+            params,
+            lr=1e-3,
+            betas=(0.95, 0.98),
+            eps=1e-8,
+            weight_decay=0,
+            grad_averaging=False,
+            amsgrad=False,
+    ):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if not 0.0 <= eps:
@@ -39,10 +47,14 @@ class NvNovoGrad(Optimizer):
             raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
         if not 0.0 <= betas[1] < 1.0:
             raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
-        defaults = dict(lr=lr, betas=betas, eps=eps,
-                        weight_decay=weight_decay,
-                        grad_averaging=grad_averaging,
-                        amsgrad=amsgrad)
+        defaults = dict(
+            lr=lr,
+            betas=betas,
+            eps=eps,
+            weight_decay=weight_decay,
+            grad_averaging=grad_averaging,
+            amsgrad=amsgrad,
+        )
 
         super(NvNovoGrad, self).__init__(params, defaults)
 
@@ -51,6 +63,7 @@ class NvNovoGrad(Optimizer):
         for group in self.param_groups:
             group.setdefault('amsgrad', False)
 
+    @torch.no_grad()
     def step(self, closure=None):
         """Performs a single optimization step.
 
@@ -60,13 +73,14 @@ class NvNovoGrad(Optimizer):
         """
         loss = None
         if closure is not None:
-            loss = closure()
+            with torch.enable_grad():
+                loss = closure()
 
         for group in self.param_groups:
             for p in group['params']:
                 if p.grad is None:
                     continue
-                grad = p.grad.data
+                grad = p.grad
                 if grad.is_sparse:
                     raise RuntimeError('Sparse gradients are not supported.')
                 amsgrad = group['amsgrad']
@@ -77,7 +91,7 @@ class NvNovoGrad(Optimizer):
                 if len(state) == 0:
                     state['step'] = 0
                     # Exponential moving average of gradient values
-                    state['exp_avg'] = torch.zeros_like(p.data)
+                    state['exp_avg'] = torch.zeros_like(p)
                     # Exponential moving average of squared gradient values
                     state['exp_avg_sq'] = torch.zeros([]).to(state['exp_avg'].device)
                     if amsgrad:
@@ -96,7 +110,7 @@ class NvNovoGrad(Optimizer):
                 if exp_avg_sq == 0:
                     exp_avg_sq.copy_(norm)
                 else:
-                    exp_avg_sq.mul_(beta2).add_(1 - beta2, norm)
+                    exp_avg_sq.mul_(beta2).add_(norm, alpha=1 - beta2)
 
                 if amsgrad:
                     # Maintains the maximum of all 2nd moment running avg. till now
@@ -108,11 +122,11 @@ class NvNovoGrad(Optimizer):
 
                 grad.div_(denom)
                 if group['weight_decay'] != 0:
-                    grad.add_(group['weight_decay'], p.data)
+                    grad.add_(p, alpha=group['weight_decay'])
                 if group['grad_averaging']:
                     grad.mul_(1 - beta1)
                 exp_avg.mul_(beta1).add_(grad)
 
-                p.data.add_(-group['lr'], exp_avg)
+                p.add_(exp_avg, alpha=-group['lr'])
 
         return loss

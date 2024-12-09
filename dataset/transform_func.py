@@ -4,6 +4,8 @@ import torchvision.transforms.functional as F
 from collections.abc import Sequence, Iterable
 import numpy as np
 from PIL import Image
+from timm.data import resolve_data_config
+from timm.data.transforms_factory import create_transform
 
 
 _pil_interpolation_to_str = {
@@ -96,6 +98,10 @@ class Normalize(object):
     def __call__(self, imgs):
         imgs = F.normalize(imgs, mean=self.mean, std=self.std)
         return imgs
+
+
+def get_timm_transform(model):
+    return create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
 
 
 def make_transform(args, mode):

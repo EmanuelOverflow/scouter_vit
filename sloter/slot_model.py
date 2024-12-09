@@ -20,7 +20,7 @@ def load_backbone(args):
         args.model,
         pretrained=args.pre_trained,
         num_classes=args.num_classes)
-    if args.dataset == "MNIST":
+    if args.dataset == "MNIST" and ('vit' not in args.model or 'transformer' not in args.model):
         bone.conv1 = nn.Conv2d(1, 64, 3, stride=2, padding=1, bias=False)
     if args.use_slot:
         if args.use_pre:
@@ -32,6 +32,7 @@ def load_backbone(args):
             bone.load_state_dict(new_state_dict)
             print("load pre dataset parameter over")
         if not args.grad:
+            '''
             if 'seresnet' in args.model:
                 bone.avg_pool = Identical()
                 bone.last_linear = Identical()
@@ -49,6 +50,17 @@ def load_backbone(args):
                 bone.conv_head = Identical()
                 bone.act2 = Identical()
                 bone.classifier = Identical()
+            elif 'vit_base_patch' in args.model:
+                
+                bone.pool = Identical()
+                bone.fc_norm = Identical()
+                bone.head_drop = Identical()
+                bone.head = Identical()
+                
+                bone.reset_classifier(0)  
+                # Probably is sufficient to change bone.forward = bone.forward_features
+            '''
+            bone.reset_classifier(0) # new timm method
     return bone
 
 
