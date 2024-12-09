@@ -100,7 +100,9 @@ class Normalize(object):
         return imgs
 
 
-def get_timm_transform(model):
+def get_timm_transform(modelpython train.py --dataset MNIST --model vit_base_patch16_224 --batch_size 70 --epochs 20 \
+--num_classes 10 --use_slot false \
+--vis false --channel 2048 --freeze_layers 0 ):
     return create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
 
 
