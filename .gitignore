@@ -3,8 +3,9 @@
 saved_model*
 .idea/
 sloter/vis*/
-data/
+.data/
 *.pyc
 .vscode/
 scripts/
 temp*
+__pycache__/
