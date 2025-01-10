@@ -69,15 +69,25 @@ class SlotModel(nn.Module):
         super(SlotModel, self).__init__()
         self.use_slot = args.use_slot
         self.backbone = load_backbone(args)
+        self.model_name = args.model
+        
         if self.use_slot:
             if 'densenet' in args.model:
                 self.feature_size = 8
             else:
                 self.feature_size = 9
+            
+            if 'vit' in self.model_name or 'transformer' in self.model_name:    
+                self.channel_shuffle = nn.ChannelShuffle(args.channel_shuffle) if 'channel_shuffle' in args else nn.ChannelShuffle(args.channel_shuffle)
+                channels_out = args.channels_out
+                rand_x = torch.rand(args.batch_size, channels_out)
+                self.channel_shuffle_in = self.channels_rolling(rand_x).shape[1]
+            else:
+                self.channel_shuffle_in = args.channel    
 
             self.channel = args.channel
             self.slots_per_class = args.slots_per_class
-            self.conv1x1 = nn.Conv2d(self.channel, args.hidden_dim, kernel_size=(1, 1), stride=(1, 1))
+            self.conv1x1 = nn.Conv2d(self.channel_shuffle_in, args.hidden_dim, kernel_size=(1, 1), stride=(1, 1))
             if args.pre_trained:
                 self.dfs_freeze(self.backbone, args.freeze_layers)
             self.slot = SlotAttention(args.num_classes, self.slots_per_class, args.hidden_dim, vis=args.vis,
@@ -113,11 +123,26 @@ class SlotModel(nn.Module):
             for param in child.parameters():
                 param.requires_grad = False
             self.dfs_freeze_bnorm(child)
+            
+    def channels_rolling(self, x):
+        b = x.size(0)
+        rolling_x = [x.view(b, self.channel, self.feature_size, self.feature_size)]
+        equals = False
+        shuffle_x = x
+        while not equals:
+            shuffle_x = self.channel_shuffle(shuffle_x)
+            if torch.all(shuffle_x == x):
+                equals = True
+            else:
+                rolling_x.append(shuffle_x.view(b, self.channel, self.feature_size, self.feature_size))
+        return torch.concatenate(rolling_x, dim=1)
 
     def forward(self, x, target=None):
         x = self.backbone(x)
         if self.use_slot:
-            x = self.conv1x1(x.view(x.size(0), self.channel, self.feature_size, self.feature_size))
+            if 'vit' in self.model_name or 'transformer' in self.model_name:    
+                x = self.channels_rolling(x)
+            x = self.conv1x1(x.view(x.size(0), self.channel_shuffle_in, self.feature_size, self.feature_size))
             x = torch.relu(x)
             pe = self.position_emb(x)
             x_pe = x + pe
