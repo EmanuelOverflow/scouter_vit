@@ -7,6 +7,21 @@ from timm.models import create_model
 from collections import OrderedDict
 
 
+def channel_shuffle(x: torch.Tensor, groups: int) -> torch.Tensor:
+    batchsize, num_channels, height, width = x.size()
+    channels_per_group = num_channels // groups
+
+    # reshape
+    x = x.view(batchsize, groups, channels_per_group, height, width)
+
+    x = torch.transpose(x, 1, 2).contiguous()
+
+    # flatten
+    x = x.view(batchsize, num_channels, height, width)
+
+    return x
+
+
 class Identical(nn.Module):
     def __init__(self):
         super(Identical, self).__init__()
@@ -71,6 +86,8 @@ class SlotModel(nn.Module):
         self.backbone = load_backbone(args)
         self.model_name = args.model
         
+        self.channel = args.channel
+        
         if self.use_slot:
             if 'densenet' in args.model:
                 self.feature_size = 8
@@ -78,14 +95,13 @@ class SlotModel(nn.Module):
                 self.feature_size = 9
             
             if 'vit' in self.model_name or 'transformer' in self.model_name:    
-                self.channel_shuffle = nn.ChannelShuffle(args.channel_shuffle) if 'channel_shuffle' in args else nn.ChannelShuffle(args.channel_shuffle)
+                self.channel_shuffle = args.channel_shuffle
                 channels_out = args.channels_out
                 rand_x = torch.rand(args.batch_size, channels_out)
                 self.channel_shuffle_in = self.channels_rolling(rand_x).shape[1]
             else:
                 self.channel_shuffle_in = args.channel    
 
-            self.channel = args.channel
             self.slots_per_class = args.slots_per_class
             self.conv1x1 = nn.Conv2d(self.channel_shuffle_in, args.hidden_dim, kernel_size=(1, 1), stride=(1, 1))
             if args.pre_trained:
@@ -128,10 +144,11 @@ class SlotModel(nn.Module):
         b = x.size(0)
         rolling_x = [x.view(b, self.channel, self.feature_size, self.feature_size)]
         equals = False
-        shuffle_x = x
+        x_initial = x.view(b, -1, 1, 1)
+        shuffle_x = x_initial
         while not equals:
-            shuffle_x = self.channel_shuffle(shuffle_x)
-            if torch.all(shuffle_x == x):
+            shuffle_x = channel_shuffle(shuffle_x, self.channel_shuffle)
+            if torch.all(shuffle_x == x_initial):
                 equals = True
             else:
                 rolling_x.append(shuffle_x.view(b, self.channel, self.feature_size, self.feature_size))
