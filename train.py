@@ -58,6 +58,10 @@ def get_args_parser():
     parser.add_argument('--lambda_value', default="1.", type=str, help='lambda of slot loss')
     parser.add_argument('--vis', default=False, type=str2bool, help='whether save slot visualization')
     parser.add_argument('--vis_id', default=0, type=int, help='choose image to visualization')
+    
+    # slot transformer settings
+    parser.add_argument('--channel_shuffle', default=64, type=int)
+    parser.add_argument('--channels_out', default=768, type=int)
 
     # data/machine set
     parser.add_argument('--dataset_dir', default='../PAN/bird_200/CUB_200_2011/CUB_200_2011/',
